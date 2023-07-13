@@ -1,0 +1,462 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+                          
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+} 
+
+enum Role {
+  user
+  admin
+  especialista
+  paciente
+  universidad
+  estudiante
+  universidadUser
+}
+
+model OTP {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  code      String
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int      @unique
+}
+
+model User {
+  id                  Int                 @id @default(autoincrement())
+  createdAt           DateTime            @default(now()) // Fecha de Creación del registro
+  updatedAt           DateTime            @updatedAt
+  primer_nombre       String?             @db.VarChar(50) // Primer nombre del usuario
+  primer_apellido     String?             @db.VarChar(50) // Primer apellido del usuario
+  segundo_nombre      String?             @db.VarChar(50) // Segundo nombre del usuario
+  segundo_apellido    String?             @db.VarChar(50) // Segundo apellido del usuario
+  email               String?             @unique @db.VarChar(50) // correo electrónico
+  email_verificado    Boolean             @default(false)
+  password            String?             @db.VarChar(100) // password, se graba encriptado
+  newPassword         String? // Para el password recovery
+  codigo_usuario      String? // @default(dbgenerated()) @db.VarChar(20) codigo del usuario generado por el sistema para efectos de programa de referidos. Por definir la esructura de campo
+  role                Role?               @default(user) // roles de usuario (uso interno de Kuidis)
+  activo              Boolean?            @default(true) // Flag que indica si el usuario está activo
+  bloqueado           Boolean?            @default(false) // Flag que indica si el usuario está bloqueado (ingreso fallido en tres ocasiones)
+  conectado           Boolean?            @default(false) // Flag que indica si el usuario está conectado
+  ultima_modif_psw    DateTime? // fecha del último cambio de clave
+  user_roles          Role[] // El usuario puede tener varios roles, puede ser tanto un paciente como un especialista por ejemplo
+  token               String? // JWT token
+  rememberMeToken     String? // JWT token
+  refreshToken        String? // JWT token, se actualiza cada cierto periodo de tiempo
+  especialista        Especialista? // Relación 1 a 1 especialista - usuario 
+  usuario_universidad UsuarioUniversidad? // Relación 1 a 1 usuario universidad - usuario 
+  paciente            Paciente? // Relaciones 1 a 1 usuario paciente - usuario
+  OTP                 OTP[] // Un usuario puede tener varios códigos OTP los cuales serán generados a medida que los va necesitando
+  Beneficiarios       Beneficiarios[]
+}
+
+model Paciente {
+  paciente_id          Int                 @id @default(autoincrement()) // ID del paciente autogenerado
+  createdAt            DateTime            @default(now()) // Fecha de Creación del registro
+  updatedAt            DateTime            @updatedAt // Fecha de actualización del regristro
+  es_usuario_principal String?             @db.Char(1) // P= Usuario principal  D = Dedendiete.  Flag que indica si el paciente es el mismo usuario principal
+  tipo_dependencia     Int? // Tabla de Relaciones de Dependencia RELACION_ID
+  primer_nombre        String?             @db.VarChar(100) // Primer nombre del paciente
+  primer_apellido      String?             @db.VarChar(100) // Primer apellido del paciente
+  segundo_nombre       String?             @db.VarChar(100) // Segundo nombre del paciente
+  segundo_apellido     String?             @db.VarChar(100) // Segundo apellido del paciente
+  tipo_documento       String?             @db.VarChar(50) // Tipo de Documento (Pasaporte, CUR (Clave única de registro de población), FM (forma migratoria)
+  nro_documento        String              @db.VarChar(25) // Número de Documento
+  Pais                 String?
+  Estado               String?
+  MunicipioCiudad      String?
+  Delegacion           String?
+  pais                 Pais?               @relation(fields: [pais_id], references: [pais_id])
+  pais_id              Int? // ID del país (si el pais es distinto de México, solo se pide la DIRECCION y CODIGO POSTAL
+  estado               EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id])
+  estado_id            Int? // ID del Estado (tabla interna  o web service)
+  municipio            Municipio?          @relation(fields: [municipio_id], references: [municipio_id])
+  municipio_id         Int? // ID del Municipio (tabla interna  o web service)
+  delegacion           Delegacion?         @relation(fields: [delegacion_id], references: [delegacion_id])
+  delegacion_id        Int? // ID de la Delegación (tabla interna  o web service)
+  ciudad               Ciudad?             @relation(fields: [ciudad_id], references: [ciudad_id])
+  ciudad_id            Int? // ID de la ciudad (tabla interna  o web service)
+  codigo_postal        String?             @db.VarChar(10) // Codigo Postal
+  direccion            String?             @db.VarChar(250) // Calle, Avenida, Apartamento
+  telefono_fijo        String?             @db.VarChar(25) // Teléfono fijo del Paciente
+  telefono_movil       String?             @db.VarChar(25) // Teléfono móvil del paciente
+  genero               String?             @db.VarChar(100) // Identidad de genero 
+  sexo                 String?             @db.VarChar(1) // Sexo (H=hombre, M=Mujer)
+  fecha_nacimiento     DateTime?           @db.Date // Fecha de Nacimiento del Paciente
+  user                 User?               @relation(fields: [usuario_id], references: [id])
+  usuario_id           Int?                @unique // ID del usuario - ID unico 
+
+  @@index([usuario_id], name: "paciente_usuario_id_idx")
+}
+
+model Beneficiarios {
+  id               Int                 @id @default(autoincrement())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  primer_nombre    String?             @db.VarChar(100)
+  primer_apellido  String?             @db.VarChar(100)
+  segundo_nombre   String?             @db.VarChar(100)
+  segundo_apellido String?             @db.VarChar(100)
+  tipo_documento   String?             @db.VarChar(50)
+  nro_documento    String              @db.VarChar(25)
+  Pais             String?
+  Estado           String?
+  MunicipioCiudad  String?
+  Delegacion       String?
+  codigo_postal    String?             @db.VarChar(10)
+  fecha_nacimiento DateTime?           @db.Date
+  direccion        String?             @db.VarChar(250)
+  telefono_movil   String?             @db.VarChar(25)
+  genero           String?             @db.VarChar(100)
+  parentesco_id    Int
+  parentesco       Parentescos         @relation(fields: [parentesco_id], references: [id])
+  pais_id          Int?
+  pais             Pais?               @relation(fields: [pais_id], references: [pais_id])
+  estado_id        Int?
+  estado           EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id])
+  municipio_id     Int?
+  municipio        Municipio?          @relation(fields: [municipio_id], references: [municipio_id])
+  delegacion_id    Int?
+  delegacion       Delegacion?         @relation(fields: [delegacion_id], references: [delegacion_id])
+  ciudad_id        Int?
+  ciudad           Ciudad?             @relation(fields: [ciudad_id], references: [ciudad_id])
+  usuario_id       Int?
+  user             User?               @relation(fields: [usuario_id], references: [id])
+
+  @@index([usuario_id], name: "beneficiario_usuario_id_idx")
+}
+
+model Especialista {
+  especialista_id Int @id @default(autoincrement()) // ID del especialista autogenerado
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  user       User? @relation(fields: [usuario_id], references: [id])
+  usuario_id Int?  @unique // ID del usuario - ID unico
+
+  // hay que cambiarla
+
+  pais_id       Int? // ID del país (si el pais es distinto de México, solo se pide la DIRECCION y CODIGO POSTAL
+  estado_id     Int? // ID del Estado (tabla interna  o web service)
+  municipio_id  Int? // ID del Municipio (tabla interna  o web service)
+  delegacion_id Int? // ID de la Delegación (tabla interna  o web service)
+  ciudad_id     Int? // ID de la ciudad (tabla interna  o web service)
+
+  pais       String? // ID del país (si el pais es distinto de México, solo se pide la DIRECCION y CODIGO POSTAL
+  estado     String? // ID del Estado (tabla interna  o web service)
+  municipio  String? // ID del Municipio (tabla interna  o web service)
+  delegacion String? // ID de la Delegación (tabla interna  o web service)
+  ciudad     String? // ID de la ciudad (tabla interna  o web service)
+
+  // residencia
+  codigo_postal          String?
+  direccion              String?   @db.VarChar(250) // Calle, Avenida, Apartamento
+
+  telefono_fijo          String? // Teléfono fijo
+  telefono_movil         String?   @db.VarChar(25) // Teléfono móvil
+  genero                 String?   @db.VarChar(1) // Genero (H=hombre, M=Mujer)
+  fecha_nacimiento       DateTime? // Fecha de Nacimiento
+  tipo_documento         String?   @db.VarChar(10) // Tipo de Documento (Pasaporte, CUR (Clave única de registro de población), FM (forma migratoria)
+  nro_documento          String?   @db.VarChar(25) // Número de Documento
+
+  estatus                String?   @db.Char(1) // I = Inactivo  A = Activo   (A un Especialista Inactivo no se le pueden asignar citas, se activa cuando la Cédula Profesional se valida  - Proceso interno Administrativo)
+  curriculum             Bytes? // Campo tipo Blob que almacena el curriculum (hoja de vida) del especialista de salud. Validar que el documento en PDf no supere los 2 MB
+  otros_servicios        String? // Permite al Especialista registrar otros servicios que ofrece distintos a las modalidades basicas 
+  tiene_seguro           String?   @db.Char(1) // S = Tiene Seguro  N = no tiene
+  nombre_empresa_seguros String? // Nombre de la empresa de seguros con la que trabaja el espcialista, si aplica.
+  tipo_seguro            String? // Descripción del tipo de seguro
+  foto                   Bytes? // Foto del Especialista (Tomada directamente del dispositivo, o montada desde un archivo), formato JPG, BMP.
+  rfc                    String?   @db.VarChar(50) // Registro Fiscal de Contribuyentes. Obligatorio para poder facturar, equivalente NIT, RIF
+  banco_id               String?   @db.VarChar(50) // Nombre del Banco
+  banco                  String?
+  clabe                  String?   @db.VarChar(50) // Código de Cuenta Bancaria
+}
+
+model EspecialidadMedica {
+  especialidad_id Int @id @default(autoincrement()) // ID de la especialidad médica
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  especialidad                  String // nombre de la especialidad médica
+  DolenciaPorEspecialidadMedica DolenciaPorEspecialidadMedica[] // Relación N a N - Especialidad medica y dolencias medicas
+}
+
+model DolenciaPorEspecialidadMedica {
+  dolencia_id Int @id @default(autoincrement()) // ID de la dolencia asociada a la especialidad
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  especialidad    EspecialidadMedica? @relation(fields: [especialidad_id], references: [especialidad_id])
+  especialidad_id Int? // ID de la especialidad médica
+
+  dolencia String // descripción de la dolencia
+}
+
+model Universidad {
+  universidad_id Int @id @default(autoincrement()) // ID de la universidad
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  universidad String @db.VarChar(50) // nombre de la universidad
+  siglas      String @db.VarChar(10) // Siglas de la Universidad
+
+  pais    Pais? @relation(fields: [pais_id], references: [pais_id]) // País de origen de la universidad
+  pais_id Int? // ID del país (si el pais es distinto de México, solo se pide la DIRECCION y CODIGO POSTAL
+
+  estado    EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id])
+  estado_id Int? // ID del Estado (tabla interna  o web service)
+
+  municipio    Municipio? @relation(fields: [municipio_id], references: [municipio_id])
+  municipio_id Int? // ID del Municipio (tabla interna  o web service)
+
+  delegacion    Delegacion? @relation(fields: [delegacion_id], references: [delegacion_id])
+  delegacion_id Int? // ID de la Delegación (tabla interna  o web service)
+
+  ciudad    Ciudad? @relation(fields: [ciudad_id], references: [ciudad_id])
+  ciudad_id Int? // ID de la ciudad (tabla interna  o web service)
+
+  codigo_postal String @db.VarChar(10) // Código Postal
+  direccion     String @db.VarChar(250) // Calle, Avenida, Apartamento
+
+  usuario_universidad UsuarioUniversidad[]
+  usuario_estudiante  UsuarioEstudiante[]
+}
+
+model ModalidadCita {
+  modalidad_id Int @id @default(autoincrement()) // ID de la Modalidad
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  modalidad           String // nombre de la modalidad (Teleconsulta - Atención Inmediata, Teleconsulta - Cita Programada, Cita en Consultorio, Cita a Domicilio)
+  estatus             String // A= Activo I = Inactivo
+  TerminosCondiciones TerminosCondiciones[]
+}
+
+model Configuracion {
+  configuracion_id Int @id @default(autoincrement()) // ID del registro
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  teleconsulta_programada_id Int // ID de la Modalidad de Teleconsulta Programada
+  teleconsulta_ai_id         Int // ID de la Modalidad de Teleconsulta Atención Inmediata
+  teleconsulta_cons_id       Int // ID de la Modalidad de Consulta en Consultorio
+  consulta_domicilio_id      Int // ID de la Modalidad de Consulta a Domicilio
+  duracion_cita_ai           Int // Tiempo en minutos de duracion de la cita de Atención Inmediata (20 minutos)
+  duracion_cita_tcp          Int // Tiempo en minutos de duracion de la cita de Teleconsulta Programada (1 hora)
+}
+
+model TerminosCondiciones {
+  terminos_id Int @id @default(autoincrement()) // ID deL Registro
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  modaldiad    ModalidadCita? @relation(fields: [modalidad_id], references: [modalidad_id]) // Modalidad
+  modalidad_id Int? // ID de la modalidad de la cita
+
+  texto_pacientes     String @default("") @db.Text // Descripción de los terminos y condiciones de prestación del servicio para los pacientes
+  texto_especialistas String @default("") @db.Text // Descripción de los terminos y condiciones de prestación del servicio para los médicos
+}
+
+model RelacionDependencia {
+  relacion_id Int @id @default(autoincrement()) // ID deL Registro
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  dependencia String // Descripción de la dependencia. HIJO, CONYUGUE, PADRE, MADRE, HERMANO, AMIGO, ETC.  
+}
+
+model Banco {
+  banco_id Int @id @default(autoincrement()) // ID deL Registro
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  nombre_banco String @db.VarChar(20) // Descripción del Banco
+}
+
+model Pais {
+  pais_id Int @id @default(autoincrement()) // ID deL Registro 
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  pais String // Nombre del pais
+
+  EstadoDepartamento EstadoDepartamento[]
+
+  usuario_estudiante UsuarioEstudiante[] // Estudiantes
+  Paciente           Paciente[] // Pacientes
+  Universidad        Universidad[] // Universidades
+  Beneficiarios      Beneficiarios[]
+}
+
+model EstadoDepartamento {
+  estado_id Int @id @default(autoincrement())
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  estado  String
+  pais    Pais?  @relation(fields: [pais_id], references: [pais_id]) // Pais 
+  pais_id Int // Relaación entre pais y estado-departamento
+
+  // Municipio
+  municipio Municipio[]
+
+  // Delegacion
+  delegacion Delegacion[]
+  Ciudad     Ciudad[]
+
+  usuario_estudiante UsuarioEstudiante[] // Estudiantes
+  Paciente           Paciente[] // Pacientes
+  Universidad        Universidad[] // Universidades
+  Beneficiarios      Beneficiarios[]
+}
+
+// Delegación solo aplica a Mexico
+model Municipio {
+  municipio_id Int @id @default(autoincrement()) // ID deL Registro
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  estado    EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id]) // Estado 
+  estado_id Int // Estado id
+
+  municipio String // Nombre del Municipio
+
+  delegacion Delegacion[] // Delegación
+  Ciudad     Ciudad[] // Ciudad
+
+  usuario_estudiante UsuarioEstudiante[] // Estudiantes
+  Paciente           Paciente[] // Pacientes
+  Universidad        Universidad[] // Universidades
+  Beneficiarios      Beneficiarios[]
+}
+
+// Delegación solo aplica a Mexico
+model Delegacion {
+  delegacion_id Int @id @default(autoincrement()) // ID de la Delegación
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  municipio    Municipio? @relation(fields: [municipio_id], references: [municipio_id]) // Municipio 
+  municipio_id Int // ID de Municipio
+
+  estado    EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id]) // Estado 
+  estado_id Int // ID del Estado
+
+  delegacion String // Nombre de la Delegación
+  Ciudad     Ciudad[] // Ciudad
+
+  usuario_estudiante UsuarioEstudiante[] // Estudiantes
+  Paciente           Paciente[] // Pacientes
+  Universidad        Universidad[] // Universidades
+  Beneficiarios      Beneficiarios[]
+}
+
+// Ciudad solo aplica a Mexico
+
+model Ciudad {
+  ciudad_id Int @id @default(autoincrement()) // ID de la ciudad
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  delegacion    Delegacion? @relation(fields: [delegacion_id], references: [delegacion_id]) // Delegación 
+  delegacion_id Int // ID de la Delegación
+
+  municipio    Municipio? @relation(fields: [municipio_id], references: [municipio_id]) // Municipio 
+  municipio_id Int // ID de Municipio
+
+  estado    EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id]) // Estado 
+  estado_id Int // ID del Estado
+
+  ciudad String // Nombre de la ciudad
+
+  usuario_estudiante UsuarioEstudiante[] // Estudiantes
+  Paciente           Paciente[] // Pacientes
+  Universidad        Universidad[] // Universidades
+  Beneficiarios      Beneficiarios[]
+}
+
+model UsuarioUniversidad {
+  id Int @id @default(autoincrement()) // ID del Usuario
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  usuario    User? @relation(fields: [usuario_id], references: [id]) // Usuario 
+  usuario_id Int?  @unique // ID del Usuario asociado
+
+  universidad    Universidad? @relation(fields: [universidad_id], references: [universidad_id]) // Universidad 
+  universidad_id Int? // ID de la universidad
+
+  telefono     String // Teléfono del Usuario en la Universidad
+  profesion    String // correo electrónico
+  cargo        String // Cargo
+  genero       String // H = Hombre, M = Mujer
+  tiene_seguro String // S = Si, N = No
+}
+
+model UsuarioEstudiante {
+  usuario_id Int @id @default(autoincrement()) // ID del Usuario
+
+  createdAt DateTime @default(now()) // Fecha de Creación del registro
+  updatedAt DateTime @updatedAt // Fecha de actualización del regristro
+
+  universidad    Universidad? @relation(fields: [universidad_id], references: [universidad_id])
+  universidad_id Int // ID de la  Universidad
+
+  telefono       String // Teléfono del Usuario en la Universidad
+  profesion      String // Profesión
+  cargo          String // Cargo
+  genero         String // H = Hombre, M = Mujer
+  tiene_seguro   String // S = Si, N = No
+  tipo_documento String // Tipo de Documento (Pasaporte, CUR (Clave única de registro de población), FM (forma migratoria)
+  nro_documento  String // Número de Documento
+
+  pais    Pais? @relation(fields: [pais_id], references: [pais_id]) // Pais 
+  pais_id Int? //ID del país (si el pais es distinto de México, solo se pide la DIRECCION y CODIGO POSTAL
+
+  estado    EstadoDepartamento? @relation(fields: [estado_id], references: [estado_id]) // Estado 
+  estado_id Int? // ID del Estado (tabla interna  o web service)
+
+  municipio    Municipio? @relation(fields: [municipio_id], references: [municipio_id]) // Municipio
+  municipio_id Int? // ID del Municipio (tabla interna  o web service)
+
+  delegacion    Delegacion? @relation(fields: [delegacion_id], references: [delegacion_id]) // Delegación 
+  delegacion_id Int? // ID de la Delegación (tabla interna  o web service)
+
+  ciudad    Ciudad? @relation(fields: [ciudad_id], references: [ciudad_id]) // Ciudad 
+  ciudad_id Int? // ID de la ciudad (tabla interna  o web service)
+
+  codigo_postal  String? // 	Codigo Postal
+  direccion      String // Calle, Avenida, Apartamento
+  telefono_fijo  String? // Teléfono fijo del Paciente
+  telefono_movil String // Teléfono móvil del paciente
+}
+
+model Parentescos {
+  id            Int             @id @default(autoincrement())
+  parentesco    String
+  Beneficiarios Beneficiarios[]
+}
